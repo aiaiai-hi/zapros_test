@@ -119,7 +119,7 @@ def display_results(df):
     )
 
 # --- Основной блок обработки данных ---
-st.set_page_config(page_title="Анализ поступивших запросов", layout="wide")
+
 st.title("Анализ поступивших запросов")
 
 uploaded_file = st.file_uploader("Загрузите Excel-файл с данными", type=["xlsx"])
