@@ -101,3 +101,48 @@ def display_results(df):
         file_name="result.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+st.title("Анализ поступивших запросов")
+
+uploaded_file = st.file_uploader("Загрузите Excel-файл с данными", type=["xlsx"])
+
+if uploaded_file:
+    df = pd.read_excel(uploaded_file)
+    st.success("Файл загружен. Нажмите 'Проанализировать' для обработки данных.")
+    if st.button("Проанализировать"):
+        cal = Russia()
+        today = pd.Timestamp(datetime.now().date())
+        result_rows = []
+        for business_id, group in df.groupby("business_id"):
+            stage_21 = group[group["stage_to"] == "2.1 Анализ целесообразности"]
+            if not stage_21.empty:
+                idx_21 = stage_21["ts_from"].idxmax()
+                row_21 = group.loc[idx_21]
+                ts_from_21 = pd.to_datetime(row_21["ts_from"], errors="coerce")
+                plan_pub_date = cal.add_working_days(ts_from_21, 21)
+                plan_pub_date = pd.Timestamp(plan_pub_date)
+            else:
+                plan_pub_date = pd.NaT
+            idx_last = group["ts_from"].idxmax()
+            row_last = group.loc[idx_last]
+            ts_from_last = pd.to_datetime(row_last["ts_from"], errors="coerce")
+            if pd.notnull(ts_from_last):
+                days_in_work = cal.get_working_days_delta(ts_from_last, today)
+            else:
+                days_in_work = None
+            result_rows.append({
+                "business_id": business_id,
+                "Создан": pd.to_datetime(row_last.get("created_at", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("created_at", None)) else "",
+                "Плановая дата": plan_pub_date.strftime("%d.%m.%Y") if pd.notnull(plan_pub_date) else "",
+                "Дней в работе": days_in_work,
+                "Тип отчета": row_last.get("form_type_report", None),
+                "Код отчета": row_last.get("report_code", None),
+                "Название отчета": row_last.get("report_name", None),
+                "Текущий этап": row_last.get("current_stage", None),
+                "Поступил на этап": pd.to_datetime(row_last.get("ts_from", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("ts_from", None)) else "",
+                "Аналитик": row_last.get("analyst", None),
+                "Владелец запроса": row_last.get("request_owner", None),
+                "ССП Владелец запроса": row_last.get("request_owner_ssp", None)
+            })
+        df_result = pd.DataFrame(result_rows)
+        display_results(df_result)
