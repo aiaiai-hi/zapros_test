@@ -1,42 +1,57 @@
 import streamlit as st
 import pandas as pd
-import datetime
 from io import BytesIO
+from workalendar.europe import Russia
+from datetime import datetime
 
-st.set_page_config(page_title="Анализ запросов", layout="wide")
-st.title("Анализ запросов и стадий их рассмотрения")
+st.set_page_config(page_title="Анализ поступивших запросов", layout="wide")
+st.title("Анализ поступивших запросов")
 
-uploaded_file = st.file_uploader("Загрузите исходный файл (CSV или Excel)", type=["csv", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel-файл с данными", type=["xlsx"])
 
 if uploaded_file:
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
+    df = pd.read_excel(uploaded_file)
     st.success("Файл загружен. Нажмите 'Проанализировать' для обработки данных.")
     if st.button("Проанализировать"):
-        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
-        df = df.sort_values("created_at", ascending=False)
-        df_unique = df.drop_duplicates(subset=["business_id"], keep="first")
-        today = datetime.datetime.now().date()
-        df_unique["ts_from"] = pd.to_datetime(df_unique["ts_from"], errors="coerce")
-        df_unique["дней в работе"] = (pd.Timestamp(today) - df_unique["ts_from"]).dt.days
-        columns = [
-            "business_id", "created_at", "дней в работе", "form_type_report", "report_code", "report_name",
-            "current_stage", "ts_from", "analyst", "request_owner", "request_owner_ssp"
-        ]
-        df_result = df_unique[columns]
-        with st.expander("Фильтры"):
-            for col in columns:
-                unique_vals = df_result[col].dropna().unique()
-                if len(unique_vals) < 100:
-                    selected = st.multiselect(f"{col}", unique_vals, default=unique_vals)
-                    df_result = df_result[df_result[col].isin(selected)]
-        search_col = st.text_input("Поиск по report_code или business_id")
-        if search_col:
-            df_result = df_result[df_result["report_code"].astype(str).str.contains(search_col) | df_result["business_id"].astype(str).str.contains(search_col)]
-        df_result["created_at"] = pd.to_datetime(df_result["created_at"], errors="coerce").dt.strftime("%d.%m.%Y")
-        df_result["ts_from"] = pd.to_datetime(df_result["ts_from"], errors="coerce").dt.strftime("%d.%m.%Y")
+        cal = Russia()
+        today = pd.Timestamp(datetime.now().date())
+        result_rows = []
+        for business_id, group in df.groupby("business_id"):
+            # 1. Найти строку, где stage_from == "2.1." с самой последней датой ts_from
+            stage_21 = group[group["stage_from"] == "2.1."]
+            if not stage_21.empty:
+                idx_21 = stage_21["ts_from"].idxmax()
+                row_21 = group.loc[idx_21]
+                ts_from_21 = pd.to_datetime(row_21["ts_from"], errors="coerce")
+                plan_pub_date = cal.add_working_days(ts_from_21, 21)
+                plan_pub_date = pd.Timestamp(plan_pub_date)
+            else:
+                plan_pub_date = pd.NaT
+            # 2. Найти строку с самой последней датой ts_from
+            idx_last = group["ts_from"].idxmax()
+            row_last = group.loc[idx_last]
+            ts_from_last = pd.to_datetime(row_last["ts_from"], errors="coerce")
+            # 3. Посчитать количество рабочих дней между today и ts_from_last
+            if pd.notnull(ts_from_last):
+                days_in_work = cal.get_working_days_delta(ts_from_last, today)
+            else:
+                days_in_work = None
+            # 4. Собрать строку результата
+            result_rows.append({
+                "business_id": business_id,
+                "created_at": row_last.get("created_at", None),
+                "Плановая дата публикации": plan_pub_date.strftime("%d.%m.%Y") if pd.notnull(plan_pub_date) else "",
+                "Дней в работе": days_in_work,
+                "form_type_report": row_last.get("form_type_report", None),
+                "report_code": row_last.get("report_code", None),
+                "report_name": row_last.get("report_name", None),
+                "current_stage": row_last.get("current_stage", None),
+                "ts_from": pd.to_datetime(row_last.get("ts_from", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("ts_from", None)) else "",
+                "analyst": row_last.get("analyst", None),
+                "request_owner": row_last.get("request_owner", None),
+                "request_owner_ssp": row_last.get("request_owner_ssp", None)
+            })
+        df_result = pd.DataFrame(result_rows)
         st.dataframe(df_result, use_container_width=True)
         def to_excel(df):
             output = BytesIO()
@@ -44,7 +59,7 @@ if uploaded_file:
                 df.to_excel(writer, index=False)
             return output.getvalue()
         st.download_button(
-            label="Скачать Xlsx файл",
+            label="Скачать в файл",
             data=to_excel(df_result),
             file_name="result.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
