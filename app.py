@@ -8,6 +8,13 @@ st.set_page_config(page_title="Анализ поступивших запрос�
 
 def display_results(df):
     """Отображение результатов с фильтрами и поиском"""
+    # --- Получаем уникальные значения для фильтров из исходного df ---
+    form_types = ['Все'] + sorted(df['Тип отчета'].dropna().unique().tolist())
+    analysts = ['Все'] + sorted(df['Аналитик'].dropna().unique().tolist())
+    stages = ['Все'] + sorted(df['Текущий этап'].dropna().unique().tolist())
+    owners = ['Все'] + sorted(df['Владелец запроса'].dropna().unique().tolist())
+    owner_ssps = ['Все'] + sorted(df['ССП Владелец запроса'].dropna().unique().tolist())
+
     # Строка поиска
     st.subheader("🔎 Поиск")
     search_query = st.text_input(
@@ -15,38 +22,25 @@ def display_results(df):
         placeholder="Введите номер отчета или business_id..."
     )
 
-    # Применяем поиск
-    filtered_df = df.copy()
-    if search_query:
-        search_mask = (
-            filtered_df['Код отчета'].astype(str).str.contains(search_query, case=False, na=False) |
-            filtered_df['business_id'].astype(str).str.contains(search_query, case=False, na=False)
-        )
-        filtered_df = filtered_df[search_mask]
-
     # Фильтры
     st.subheader("🔧 Фильтры")
     col1, col2, col3, col4 = st.columns(4)
-    # Для фильтров всегда используем уникальные значения из исходного df!
     with col1:
-        form_types = ['Все'] + sorted(df['Тип отчета'].dropna().unique().tolist())
         selected_form_type = st.selectbox("Тип формы отчета:", form_types)
-        analysts = ['Все'] + sorted(df['Аналитик'].dropna().unique().tolist())
         selected_analyst = st.selectbox("Аналитик:", analysts)
     with col2:
-        stages = ['Все'] + sorted(df['Текущий этап'].dropna().unique().tolist())
         selected_stage = st.selectbox("Текущий этап:", stages)
-        owners = ['Все'] + sorted(df['Владелец запроса'].dropna().unique().tolist())
         selected_owner = st.selectbox("Владелец запроса:", owners)
     with col3:
-        owner_ssps = ['Все'] + sorted(df['ССП Владелец запроса'].dropna().unique().tolist())
         selected_owner_ssp = st.selectbox("ССП Владелец запроса:", owner_ssps)
         min_days = st.number_input("Мин. дней в работе:", min_value=0, value=0)
     with col4:
         max_days = st.number_input("Макс. дней в работе:", min_value=0, value=1000)
         if st.button("🔄 Сбросить фильтры"):
             st.rerun()
-    # Применяем фильтры
+
+    # --- Применяем фильтры к копии исходного df ---
+    filtered_df = df.copy()
     if selected_form_type != 'Все':
         filtered_df = filtered_df[filtered_df['Тип отчета'] == selected_form_type]
     if selected_stage != 'Все':
@@ -61,6 +55,15 @@ def display_results(df):
         (filtered_df['Дней в работе'] >= min_days) & 
         (filtered_df['Дней в работе'] <= max_days)
     ]
+
+    # --- Применяем поиск уже после фильтрации ---
+    if search_query:
+        search_mask = (
+            filtered_df['Код отчета'].astype(str).str.contains(search_query, case=False, na=False) |
+            filtered_df['business_id'].astype(str).str.contains(search_query, case=False, na=False)
+        )
+        filtered_df = filtered_df[search_mask]
+
     # Статистика
     col1, col2, col3, col4 = st.columns(4)
     with col1:
