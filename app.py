@@ -60,7 +60,7 @@ if uploaded_file:
         for col in filtered_df.columns:
             if col == "№":
                 continue
-            if pd.api.types.is_numeric_dtype(filtered_df[col]):
+            if pd.api.types.is_numeric_dtype(df_result[col]):
                 min_val = int(filtered_df[col].min())
                 max_val = int(filtered_df[col].max())
                 selected = st.sidebar.slider(f"{col}", min_val, max_val, (min_val, max_val))
