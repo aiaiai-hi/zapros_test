@@ -57,7 +57,23 @@ if uploaded_file:
             df_result[col] = df_result[col].dt.strftime("%d.%m.%Y").fillna("")
         # Добавить нумерацию
         df_result.insert(0, "№", range(1, len(df_result) + 1))
-        st.dataframe(df_result, use_container_width=True)
+
+        # Фильтры по всем колонкам
+        filtered_df = df_result.copy()
+        with st.expander("Фильтры по колонкам"):
+            for col in filtered_df.columns:
+                if col == "№":
+                    continue  # не фильтруем по нумерации
+                unique_vals = filtered_df[col].dropna().unique()
+                if filtered_df[col].dtype in ["int64", "float64"]:
+                    min_val, max_val = filtered_df[col].min(), filtered_df[col].max()
+                    selected = st.slider(f"{col}", int(min_val), int(max_val), (int(min_val), int(max_val)))
+                    filtered_df = filtered_df[(filtered_df[col] >= selected[0]) & (filtered_df[col] <= selected[1])]
+                else:
+                    selected = st.multiselect(f"{col}", options=unique_vals, default=unique_vals)
+                    filtered_df = filtered_df[filtered_df[col].isin(selected)]
+
+        st.dataframe(filtered_df, use_container_width=True)
         def to_excel(df):
             output = BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -65,7 +81,7 @@ if uploaded_file:
             return output.getvalue()
         st.download_button(
             label="Скачать в файл",
-            data=to_excel(df_result),
+            data=to_excel(filtered_df),
             file_name="result.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
