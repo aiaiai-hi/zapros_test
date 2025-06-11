@@ -1,18 +1,10 @@
-import streamlit as st
-import pandas as pd
-from io import BytesIO
-from workalendar.europe import Russia
-from datetime import datetime
-
 def display_results(df):
     """Отображение результатов с фильтрами и поиском"""
-    st.markdown("---")
-    st.subheader("🔍 Результаты анализа")
 
     # Строка поиска
     st.subheader("🔎 Поиск")
     search_query = st.text_input(
-        "Поиск по номеру отчета (report_code) или business_id:",
+        "Поиск по номеру отчета (Код отчета) или business_id:",
         placeholder="Введите номер отчета или business_id..."
     )
 
@@ -20,7 +12,7 @@ def display_results(df):
     filtered_df = df.copy()
     if search_query:
         search_mask = (
-            filtered_df['report_code'].astype(str).str.contains(search_query, case=False, na=False) |
+            filtered_df['Код отчета'].astype(str).str.contains(search_query, case=False, na=False) |
             filtered_df['business_id'].astype(str).str.contains(search_query, case=False, na=False)
         )
         filtered_df = filtered_df[search_mask]
@@ -31,22 +23,22 @@ def display_results(df):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        form_types = ['Все'] + sorted(df['form_type_report'].dropna().unique().tolist())
+        form_types = ['Все'] + sorted(df['Тип отчета'].dropna().unique().tolist())
         selected_form_type = st.selectbox("Тип формы отчета:", form_types)
 
-        analysts = ['Все'] + sorted(df['analyst'].dropna().unique().tolist())
+        analysts = ['Все'] + sorted(df['Аналитик'].dropna().unique().tolist())
         selected_analyst = st.selectbox("Аналитик:", analysts)
 
     with col2:
-        stages = ['Все'] + sorted(df['current_stage'].dropna().unique().tolist())
-        selected_stage = st.selectbox("Текущая стадия:", stages)
+        stages = ['Все'] + sorted(df['Текущий этап'].dropna().unique().tolist())
+        selected_stage = st.selectbox("Текущий этап:", stages)
 
-        owners = ['Все'] + sorted(df['request_owner'].dropna().unique().tolist())
+        owners = ['Все'] + sorted(df['Владелец запроса'].dropna().unique().tolist())
         selected_owner = st.selectbox("Владелец запроса:", owners)
 
     with col3:
-        owner_ssps = ['Все'] + sorted(df['request_owner_ssp'].dropna().unique().tolist())
-        selected_owner_ssp = st.selectbox("Владелец ССП:", owner_ssps)
+        owner_ssps = ['Все'] + sorted(df['ССП Владелец запроса'].dropna().unique().tolist())
+        selected_owner_ssp = st.selectbox("ССП Владелец запроса:", owner_ssps)
 
         min_days = st.number_input("Мин. дней в работе:", min_value=0, value=0)
 
@@ -59,23 +51,23 @@ def display_results(df):
 
     # Применяем фильтры
     if selected_form_type != 'Все':
-        filtered_df = filtered_df[filtered_df['form_type_report'] == selected_form_type]
+        filtered_df = filtered_df[filtered_df['Тип отчета'] == selected_form_type]
 
     if selected_stage != 'Все':
-        filtered_df = filtered_df[filtered_df['current_stage'] == selected_stage]
+        filtered_df = filtered_df[filtered_df['Текущий этап'] == selected_stage]
 
     if selected_analyst != 'Все':
-        filtered_df = filtered_df[filtered_df['analyst'] == selected_analyst]
+        filtered_df = filtered_df[filtered_df['Аналитик'] == selected_analyst]
 
     if selected_owner != 'Все':
-        filtered_df = filtered_df[filtered_df['request_owner'] == selected_owner]
+        filtered_df = filtered_df[filtered_df['Владелец запроса'] == selected_owner]
 
     if selected_owner_ssp != 'Все':
-        filtered_df = filtered_df[filtered_df['request_owner_ssp'] == selected_owner_ssp]
+        filtered_df = filtered_df[filtered_df['ССП Владелец запроса'] == selected_owner_ssp]
 
     filtered_df = filtered_df[
-        (filtered_df['дней_в_работе'] >= min_days) & 
-        (filtered_df['дней_в_работе'] <= max_days)
+        (filtered_df['Дней в работе'] >= min_days) & 
+        (filtered_df['Дней в работе'] <= max_days)
     ]
 
     # Статистика
@@ -86,19 +78,34 @@ def display_results(df):
         st.metric("🔍 После фильтрации", len(filtered_df))
     with col3:
         if len(filtered_df) > 0:
-            avg_days = filtered_df['дней_в_работе'].mean()
+            avg_days = filtered_df['Дней в работе'].mean()
             st.metric("📅 Среднее дней в работе", f"{avg_days:.1f}")
         else:
             st.metric("📅 Среднее дней в работе", "0")
     with col4:
         if len(filtered_df) > 0:
-            max_days_value = filtered_df['дней_в_работе'].max()
+            max_days_value = filtered_df['Дней в работе'].max()
             st.metric("⏰ Максимум дней", max_days_value)
         else:
             st.metric("⏰ Максимум дней", "0")
 
-    # Выводим таблицу и кнопку для скачивания
-    st.dataframe(filtered_df, use_container_width=True)
+    # --- Заголовок перед таблицей ---
+    st.subheader("🔍 Результаты анализа")
+
+    # Удаляем две первые колонки (если есть)
+    table_df = filtered_df.copy()
+    if "№" in table_df.columns:
+        table_df = table_df.drop(columns=["№"])
+    if "business_id" in table_df.columns:
+        # business_id оставляем, но переименуем и выравниваем
+        pass
+
+    # Центрируем business_id
+    st.dataframe(
+        table_df.style.set_properties(subset=["business_id"], **{'text-align': 'center'}),
+        use_container_width=True
+    )
+
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -106,11 +113,12 @@ def display_results(df):
         return output.getvalue()
     st.download_button(
         label="Скачать в файл",
-        data=to_excel(filtered_df),
+        data=to_excel(table_df),
         file_name="result.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+# --- Основной блок обработки данных ---
 st.set_page_config(page_title="Анализ поступивших запросов", layout="wide")
 st.title("Анализ поступивших запросов")
 
@@ -142,19 +150,17 @@ if uploaded_file:
                 days_in_work = None
             result_rows.append({
                 "business_id": business_id,
-                "created_at": pd.to_datetime(row_last.get("created_at", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("created_at", None)) else "",
-                "Плановая дата публикации": plan_pub_date.strftime("%d.%m.%Y") if pd.notnull(plan_pub_date) else "",
-                "дней_в_работе": days_in_work,
-                "form_type_report": row_last.get("form_type_report", None),
-                "report_code": row_last.get("report_code", None),
-                "report_name": row_last.get("report_name", None),
-                "current_stage": row_last.get("current_stage", None),
-                "ts_from": pd.to_datetime(row_last.get("ts_from", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("ts_from", None)) else "",
-                "analyst": row_last.get("analyst", None),
-                "request_owner": row_last.get("request_owner", None),
-                "request_owner_ssp": row_last.get("request_owner_ssp", None)
+                "Создан": pd.to_datetime(row_last.get("created_at", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("created_at", None)) else "",
+                "Плановая дата": plan_pub_date.strftime("%d.%m.%Y") if pd.notnull(plan_pub_date) else "",
+                "Дней в работе": days_in_work,
+                "Тип отчета": row_last.get("form_type_report", None),
+                "Код отчета": row_last.get("report_code", None),
+                "Название отчета": row_last.get("report_name", None),
+                "Текущий этап": row_last.get("current_stage", None),
+                "Поступил на этап": pd.to_datetime(row_last.get("ts_from", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("ts_from", None)) else "",
+                "Аналитик": row_last.get("analyst", None),
+                "Владелец запроса": row_last.get("request_owner", None),
+                "ССП Владелец запроса": row_last.get("request_owner_ssp", None)
             })
         df_result = pd.DataFrame(result_rows)
-        df_result.insert(0, "№", range(1, len(df_result) + 1))
         display_results(df_result)
-        
