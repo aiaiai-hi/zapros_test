@@ -20,7 +20,7 @@ if uploaded_file:
         df_unique = df.drop_duplicates(subset=["business_id"], keep="first")
         today = datetime.datetime.now().date()
         df_unique["ts_from"] = pd.to_datetime(df_unique["ts_from"], errors="coerce")
-        df_unique["дней в работе"] = (today - df_unique["ts_from"].dt.date).dt.days
+        df_unique["дней в работе"] = (pd.Timestamp(today) - df_unique["ts_from"]).dt.days
         columns = [
             "business_id", "created_at", "дней в работе", "form_type_report", "report_code", "report_name",
             "current_stage", "ts_from", "analyst", "request_owner", "request_owner_ssp"
