@@ -8,12 +8,13 @@ st.set_page_config(page_title="Анализ поступивших запрос�
 
 def display_results(df):
     """Отображение результатов с фильтрами и поиском"""
-    # --- Получаем уникальные значения для фильтров из исходного df ---
-    form_types = ['Все'] + sorted(df['Тип отчета'].dropna().unique().tolist())
-    analysts = ['Все'] + sorted(df['Аналитик'].dropna().unique().tolist())
-    stages = ['Все'] + sorted(df['Текущий этап'].dropna().unique().tolist())
-    owners = ['Все'] + sorted(df['Владелец запроса'].dropna().unique().tolist())
-    owner_ssps = ['Все'] + sorted(df['ССП Владелец запроса'].dropna().unique().tolist())
+
+    # --- Всегда формируем значения для фильтров из исходного df ---
+    form_types = ['Все'] + sorted([str(x) for x in df['Тип отчета'].dropna().unique()])
+    analysts = ['Все'] + sorted([str(x) for x in df['Аналитик'].dropna().unique()])
+    stages = ['Все'] + sorted([str(x) for x in df['Текущий этап'].dropna().unique()])
+    owners = ['Все'] + sorted([str(x) for x in df['Владелец запроса'].dropna().unique()])
+    owner_ssps = ['Все'] + sorted([str(x) for x in df['ССП Владелец запроса'].dropna().unique()])
 
     # Строка поиска
     st.subheader("🔎 Поиск")
@@ -42,15 +43,15 @@ def display_results(df):
     # --- Применяем фильтры к копии исходного df ---
     filtered_df = df.copy()
     if selected_form_type != 'Все':
-        filtered_df = filtered_df[filtered_df['Тип отчета'] == selected_form_type]
+        filtered_df = filtered_df[filtered_df['Тип отчета'].astype(str) == selected_form_type]
     if selected_stage != 'Все':
-        filtered_df = filtered_df[filtered_df['Текущий этап'] == selected_stage]
+        filtered_df = filtered_df[filtered_df['Текущий этап'].astype(str) == selected_stage]
     if selected_analyst != 'Все':
-        filtered_df = filtered_df[filtered_df['Аналитик'] == selected_analyst]
+        filtered_df = filtered_df[filtered_df['Аналитик'].astype(str) == selected_analyst]
     if selected_owner != 'Все':
-        filtered_df = filtered_df[filtered_df['Владелец запроса'] == selected_owner]
+        filtered_df = filtered_df[filtered_df['Владелец запроса'].astype(str) == selected_owner]
     if selected_owner_ssp != 'Все':
-        filtered_df = filtered_df[filtered_df['ССП Владелец запроса'] == selected_owner_ssp]
+        filtered_df = filtered_df[filtered_df['ССП Владелец запроса'].astype(str) == selected_owner_ssp]
     filtered_df = filtered_df[
         (filtered_df['Дней в работе'] >= min_days) & 
         (filtered_df['Дней в работе'] <= max_days)
@@ -99,11 +100,7 @@ def display_results(df):
             df.to_excel(writer, index=False)
         return output.getvalue()
     st.download_button(
-        label="Скачать в файл",
-        data=to_excel(table_df),
-        file_name="result.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        label="
 
 st.title("Анализ поступивших запросов")
 
