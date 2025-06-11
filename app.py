@@ -100,7 +100,11 @@ def display_results(df):
             df.to_excel(writer, index=False)
         return output.getvalue()
     st.download_button(
-        label="
+        label="Скачать в файл",
+        data=to_excel(table_df),
+        file_name="result.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 st.title("Анализ поступивших запросов")
 
