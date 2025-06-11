@@ -42,6 +42,8 @@ def display_results(df):
 
     # --- Применяем фильтры к копии исходного df ---
     filtered_df = df.copy()
+
+    # Строковые фильтры
     if selected_form_type != 'Все':
         filtered_df = filtered_df[filtered_df['Тип отчета'].astype(str) == selected_form_type]
     if selected_stage != 'Все':
@@ -52,9 +54,12 @@ def display_results(df):
         filtered_df = filtered_df[filtered_df['Владелец запроса'].astype(str) == selected_owner]
     if selected_owner_ssp != 'Все':
         filtered_df = filtered_df[filtered_df['ССП Владелец запроса'].astype(str) == selected_owner_ssp]
+
+    # Числовой фильтр с обработкой NaN
+    filtered_df['Дней в работе'] = pd.to_numeric(filtered_df['Дней в работе'], errors='coerce')
     filtered_df = filtered_df[
-        (filtered_df['Дней в работе'] >= min_days) & 
-        (filtered_df['Дней в работе'] <= max_days)
+        (filtered_df['Дней в работе'].fillna(-1) >= min_days) & 
+        (filtered_df['Дней в работе'].fillna(99999) <= max_days)
     ]
 
     # --- Применяем поиск уже после фильтрации ---
