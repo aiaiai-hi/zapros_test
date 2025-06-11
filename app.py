@@ -17,7 +17,6 @@ if uploaded_file:
         today = pd.Timestamp(datetime.now().date())
         result_rows = []
         for business_id, group in df.groupby("business_id"):
-            # 1. Найти строку, где stage_to == "2.1 Анализ целесообразности" с самой последней датой ts_from
             stage_21 = group[group["stage_to"] == "2.1 Анализ целесообразности"]
             if not stage_21.empty:
                 idx_21 = stage_21["ts_from"].idxmax()
@@ -27,16 +26,13 @@ if uploaded_file:
                 plan_pub_date = pd.Timestamp(plan_pub_date)
             else:
                 plan_pub_date = pd.NaT
-            # 2. Найти строку с самой последней датой ts_from
             idx_last = group["ts_from"].idxmax()
             row_last = group.loc[idx_last]
             ts_from_last = pd.to_datetime(row_last["ts_from"], errors="coerce")
-            # 3. Посчитать количество рабочих дней между today и ts_from_last
             if pd.notnull(ts_from_last):
                 days_in_work = cal.get_working_days_delta(ts_from_last, today)
             else:
                 days_in_work = None
-            # 4. Собрать строку результата
             result_rows.append({
                 "business_id": business_id,
                 "created_at": pd.to_datetime(row_last.get("created_at", None), errors="coerce"),
@@ -54,24 +50,29 @@ if uploaded_file:
         df_result = pd.DataFrame(result_rows)
         # Форматирование дат
         for col in ["created_at", "ts_from", "Плановая дата публикации"]:
-            df_result[col] = df_result[col].dt.strftime("%d.%m.%Y").fillna("")
+            df_result[col] = pd.to_datetime(df_result[col], errors="coerce").dt.strftime("%d.%m.%Y").fillna("")
         # Добавить нумерацию
         df_result.insert(0, "№", range(1, len(df_result) + 1))
 
-        # Фильтры по всем колонкам
+        # --- ФИЛЬТРЫ В СТОРОНЕ, КАК В ПРИМЕРЕ ---
+        st.sidebar.header("Фильтры")
         filtered_df = df_result.copy()
-        with st.expander("Фильтры по колонкам"):
-            for col in filtered_df.columns:
-                if col == "№":
-                    continue  # не фильтруем по нумерации
+        for col in filtered_df.columns:
+            if col == "№":
+                continue
+            if pd.api.types.is_numeric_dtype(filtered_df[col]):
+                min_val = int(filtered_df[col].min())
+                max_val = int(filtered_df[col].max())
+                selected = st.sidebar.slider(f"{col}", min_val, max_val, (min_val, max_val))
+                filtered_df = filtered_df[(filtered_df[col] >= selected[0]) & (filtered_df[col] <= selected[1])]
+            elif col in ["created_at", "ts_from", "Плановая дата публикации"]:
+                unique_dates = filtered_df[col].unique()
+                selected_dates = st.sidebar.multiselect(f"{col}", options=unique_dates, default=unique_dates)
+                filtered_df = filtered_df[filtered_df[col].isin(selected_dates)]
+            else:
                 unique_vals = filtered_df[col].dropna().unique()
-                if filtered_df[col].dtype in ["int64", "float64"]:
-                    min_val, max_val = filtered_df[col].min(), filtered_df[col].max()
-                    selected = st.slider(f"{col}", int(min_val), int(max_val), (int(min_val), int(max_val)))
-                    filtered_df = filtered_df[(filtered_df[col] >= selected[0]) & (filtered_df[col] <= selected[1])]
-                else:
-                    selected = st.multiselect(f"{col}", options=unique_vals, default=unique_vals)
-                    filtered_df = filtered_df[filtered_df[col].isin(selected)]
+                selected = st.sidebar.multiselect(f"{col}", options=unique_vals, default=unique_vals)
+                filtered_df = filtered_df[filtered_df[col].isin(selected)]
 
         st.dataframe(filtered_df, use_container_width=True)
         def to_excel(df):
