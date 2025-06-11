@@ -1,6 +1,13 @@
+import streamlit as st
+import pandas as pd
+from io import BytesIO
+from workalendar.europe import Russia
+from datetime import datetime
+
+st.set_page_config(page_title="Анализ поступивших запросов", layout="wide")
+
 def display_results(df):
     """Отображение результатов с фильтрами и поиском"""
-
     # Строка поиска
     st.subheader("🔎 Поиск")
     search_query = st.text_input(
@@ -19,57 +26,40 @@ def display_results(df):
 
     # Фильтры
     st.subheader("🔧 Фильтры")
-
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
         form_types = ['Все'] + sorted(df['Тип отчета'].dropna().unique().tolist())
         selected_form_type = st.selectbox("Тип формы отчета:", form_types)
-
         analysts = ['Все'] + sorted(df['Аналитик'].dropna().unique().tolist())
         selected_analyst = st.selectbox("Аналитик:", analysts)
-
     with col2:
         stages = ['Все'] + sorted(df['Текущий этап'].dropna().unique().tolist())
         selected_stage = st.selectbox("Текущий этап:", stages)
-
         owners = ['Все'] + sorted(df['Владелец запроса'].dropna().unique().tolist())
         selected_owner = st.selectbox("Владелец запроса:", owners)
-
     with col3:
         owner_ssps = ['Все'] + sorted(df['ССП Владелец запроса'].dropna().unique().tolist())
         selected_owner_ssp = st.selectbox("ССП Владелец запроса:", owner_ssps)
-
         min_days = st.number_input("Мин. дней в работе:", min_value=0, value=0)
-
     with col4:
         max_days = st.number_input("Макс. дней в работе:", min_value=0, value=1000)
-
-        # Кнопка сброса фильтров
         if st.button("🔄 Сбросить фильтры"):
             st.rerun()
-
     # Применяем фильтры
     if selected_form_type != 'Все':
         filtered_df = filtered_df[filtered_df['Тип отчета'] == selected_form_type]
-
     if selected_stage != 'Все':
         filtered_df = filtered_df[filtered_df['Текущий этап'] == selected_stage]
-
     if selected_analyst != 'Все':
         filtered_df = filtered_df[filtered_df['Аналитик'] == selected_analyst]
-
     if selected_owner != 'Все':
         filtered_df = filtered_df[filtered_df['Владелец запроса'] == selected_owner]
-
     if selected_owner_ssp != 'Все':
         filtered_df = filtered_df[filtered_df['ССП Владелец запроса'] == selected_owner_ssp]
-
     filtered_df = filtered_df[
         (filtered_df['Дней в работе'] >= min_days) & 
         (filtered_df['Дней в работе'] <= max_days)
     ]
-
     # Статистика
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -88,24 +78,17 @@ def display_results(df):
             st.metric("⏰ Максимум дней", max_days_value)
         else:
             st.metric("⏰ Максимум дней", "0")
-
     # --- Заголовок перед таблицей ---
     st.subheader("🔍 Результаты анализа")
-
-    # Удаляем две первые колонки (если есть)
+    # Удаляем колонку № если есть
     table_df = filtered_df.copy()
     if "№" in table_df.columns:
         table_df = table_df.drop(columns=["№"])
-    if "business_id" in table_df.columns:
-        # business_id оставляем, но переименуем и выравниваем
-        pass
-
     # Центрируем business_id
     st.dataframe(
         table_df.style.set_properties(subset=["business_id"], **{'text-align': 'center'}),
         use_container_width=True
     )
-
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -117,8 +100,6 @@ def display_results(df):
         file_name="result.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-# --- Основной блок обработки данных ---
 
 st.title("Анализ поступивших запросов")
 
