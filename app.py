@@ -17,8 +17,8 @@ if uploaded_file:
         today = pd.Timestamp(datetime.now().date())
         result_rows = []
         for business_id, group in df.groupby("business_id"):
-            # 1. Найти строку, где stage_from == "2.1." с самой последней датой ts_from
-            stage_21 = group[group["stage_from"] == "2.1."]
+            # 1. Найти строку, где stage_to == "2.1 Анализ целесообразности" с самой последней датой ts_from
+            stage_21 = group[group["stage_to"] == "2.1 Анализ целесообразности"]
             if not stage_21.empty:
                 idx_21 = stage_21["ts_from"].idxmax()
                 row_21 = group.loc[idx_21]
@@ -39,19 +39,24 @@ if uploaded_file:
             # 4. Собрать строку результата
             result_rows.append({
                 "business_id": business_id,
-                "created_at": row_last.get("created_at", None),
-                "Плановая дата публикации": plan_pub_date.strftime("%d.%m.%Y") if pd.notnull(plan_pub_date) else "",
+                "created_at": pd.to_datetime(row_last.get("created_at", None), errors="coerce"),
+                "Плановая дата публикации": plan_pub_date,
                 "Дней в работе": days_in_work,
                 "form_type_report": row_last.get("form_type_report", None),
                 "report_code": row_last.get("report_code", None),
                 "report_name": row_last.get("report_name", None),
                 "current_stage": row_last.get("current_stage", None),
-                "ts_from": pd.to_datetime(row_last.get("ts_from", None), errors="coerce").strftime("%d.%m.%Y") if pd.notnull(row_last.get("ts_from", None)) else "",
+                "ts_from": pd.to_datetime(row_last.get("ts_from", None), errors="coerce"),
                 "analyst": row_last.get("analyst", None),
                 "request_owner": row_last.get("request_owner", None),
                 "request_owner_ssp": row_last.get("request_owner_ssp", None)
             })
         df_result = pd.DataFrame(result_rows)
+        # Форматирование дат
+        for col in ["created_at", "ts_from", "Плановая дата публикации"]:
+            df_result[col] = df_result[col].dt.strftime("%d.%m.%Y").fillna("")
+        # Добавить нумерацию
+        df_result.insert(0, "№", range(1, len(df_result) + 1))
         st.dataframe(df_result, use_container_width=True)
         def to_excel(df):
             output = BytesIO()
